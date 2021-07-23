@@ -1,0 +1,150 @@
+---
+title: "My week 2 Assignment for the Reproducibility Coursera course"
+author: "Marievee Santana"
+date: "7/21/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+Load the needed libraries and the data for this assignment
+
+```{r, echo=TRUE}
+library(knitr)
+library(dplyr)
+library(ggplot2)
+library(mice)
+
+activity <- read.csv("activity.csv", header = TRUE, sep =",")
+summary(activity)
+```
+
+remove NAs
+
+```{r, echo=TRUE}
+activitynoNA <- na.omit(activity)
+head(activitynoNA)
+```
+
+##Calculate the total number of steps taken per day
+
+```{r, echo=TRUE}
+TotalSteps <- activitynoNA %>%
+                group_by(date) %>%
+                    summarize(Total = sum(steps))
+AvgStep <- mean(TotalSteps$Total)
+MedianStep <- median(TotalSteps$Total)
+
+
+```
+
+The average number of steps taken is 
+```{r, echo=TRUE}
+print(AvgStep) 
+```
+
+The median number of steps taken is
+```{r, echo=TRUE} 
+print(MedianStep) 
+```
+
+This is the histogram of the total number of steps
+
+```{r pressure, echo=TRUE}
+TotalStepPlot <- hist(TotalSteps$Total, main = "Daily Total Steps", xlab = "Number of Steps", ylab = "Frequency", breaks = 25, col = "blue3")
+```
+
+##What is the daily average activity pattern?
+
+This computes the time series for the average activity pattern.
+
+```{r, echo=TRUE}
+AvgInterval <- activitynoNA %>%
+                group_by(interval) %>%
+                  summarize(Average = mean(steps))
+MaxInterval <- AvgInterval$interval[which.max(AvgInterval$Average)]
+plot(x = AvgInterval$interval, y = AvgInterval$Average, type = "l", col = "blue3", lwd = 2, xlab = "5-minute Time Interval", ylab = "Average Steps", main = "Daily Average Steps Activity Pattern")
+
+```
+
+The maximum number of steps are taken between the 500th and 1,000th 5-minute intervals (the 835th 5-minute interval, to be exact).
+
+##MissingData
+There are many missing values in this data set. This could introduce bias in the analysis. In fact, there are 2,304 NA values in this data frame.
+
+```{r, echo=TRUE}
+sapply(activity, function (x) sum(is.na(activity)))
+
+MissingData <- md.pattern(activity)
+print(MissingData)
+
+```
+
+Replacing the NAs using the method of multiple imputation by chained equation in order to reduce the possibility of biasing the data due to the fact that there are so many missing values.
+
+```{r, echo=TRUE}
+activity$date <- as.factor(activity$date)
+ImpActivity <- mice(activity, m = 5, meth = 'pmm')
+CompData <- complete(ImpActivity, 3)
+activity$date <- as.Date(activity$date, format = "%Y-%m-%d")
+CompData$date <- as.Date(CompData$date, format = "%Y-%m-%d")
+
+```
+
+The next section computes the average daily steps with the missing data imputated. 
+
+```{r, echo=TRUE}
+TotalCompSteps <- CompData %>%
+                group_by(date) %>%
+                    summarize(TotalComp = sum(steps))
+AvgCompStep <- format(mean(TotalCompSteps$TotalComp), scientific = FALSE)
+MedianCompStep <- median(TotalCompSteps$TotalComp)
+
+```
+
+The average number of steps taken with the missing data imputated is
+```{r, echo=TRUE} 
+print(AvgCompStep) 
+```
+
+The median number of steps taken with the missing data imputated is
+```{r, echo=TRUE} 
+print(MedianCompStep) 
+```
+
+This is the histogram of the number of steps taken using the method of multiple imputation by chained equation
+
+```{r, echo=TRUE}
+TotalCompStepPlot <- hist(TotalCompSteps$TotalComp, main = "Daily Total Steps (Imputated Data)", xlab = "Number of Steps", ylab = "Frequency", breaks = 25, col = "red3")
+```
+
+##Are there differences in activity patterns between weekdays and weekends?
+
+To compare the differences between weekdays and weekends first it is necessary to code the days by weekend and weekdays.
+
+```{r, echo=TRUE}
+CompData$DayType <- ifelse(weekdays(CompData$date) %in% c("Saturday", "Sunday"), "Weekend", "Weekday")
+CompInterval <- CompData %>%
+                  group_by(interval, DayType) %>%
+                    summarize(IntervalAvg = mean(steps))
+```
+
+Here's the comparison between weekend and weekday activity patterns.
+
+```{r, echo=TRUE}
+
+IntervalPlot <- ggplot(CompInterval, aes( x = interval, y = IntervalAvg, color = DayType))
+IntervalPlot + geom_line(size = 1.5, alpha = 0.75) + scale_color_manual(values=c("darkseagreen4","cadetblue4")) + labs(title = "Weekday & Weekend Daily Average Steps Activity Pattern", x= "5-minute Time Interval", y = "Average Steps") + theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+
+
+
+
+
+
